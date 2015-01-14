@@ -39,19 +39,19 @@ Setup
 	
 3. Create "src/main/resources/mq\_env\_config.xml". Define environment specific values that need to be updated in the generated MQSC file. Sample content:      
 	
-	<mqsc>
-	    <local>
-	    	<DEFPSIST>YES</DEFPSIST>
-	    </local>
-	    
-	    <dev>
-	    	<DEFPSIST>NO</DEFPSIST>
-	    </dev>
-	    
-	    <prod>
-	    	<DEFPSIST>YES</DEFPSIST>
-	    </prod>
-	</mqsc>
+		<mqsc>
+		    <local>
+		    	<DEFPSIST>YES</DEFPSIST>
+		    </local>
+		    
+		    <dev>
+		    	<DEFPSIST>NO</DEFPSIST>
+		    </dev>
+		    
+		    <prod>
+		    	<DEFPSIST>YES</DEFPSIST>
+		    </prod>
+		</mqsc>
 4.Create release folder like "000", "001" etc in src/main/resources       
    - 000 folder will be the base folder to create initial MQ objects    
    - 001 folder will house scripts for the next release   
