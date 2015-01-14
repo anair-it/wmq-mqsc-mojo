@@ -14,7 +14,7 @@ Software Prerequisites
 
 Example project
 -----
-[]
+[wmq-mqsc-example](https://github.com/anair-it/wmq-mqsc-example)
 
 
 Setup
