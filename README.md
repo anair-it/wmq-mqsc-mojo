@@ -21,25 +21,24 @@ Setup
 ---
 1. Create a maven project that will house your MQSC scripts
 	- MQSC script files should be created in src/main/resources                     
-2. Add the maven mojo as a plugin
-
-	<plugin>
-		<groupId>org.anair.maven.mojo</groupId>
-		<artifactId>wmq-mqsc-mojo</artifactId>
-		<version>0.0.1</version>
-		<executions>
-			<execution>
-				<phase>compile</phase>
-				<goals>
-					<goal>mqsc</goal>
-				</goals>
-			</execution>
-		</executions>
-	</plugin>
+2. Add the maven mojo as a plugin:
+	
+		<plugin>
+			<groupId>org.anair.maven.mojo</groupId>
+			<artifactId>wmq-mqsc-mojo</artifactId>
+			<version>0.0.1</version>
+			<executions>
+				<execution>
+					<phase>compile</phase>
+					<goals>
+						<goal>mqsc</goal>
+					</goals>
+				</execution>
+			</executions>
+		</plugin>
+	
 3. Create "src/main/resources/mq\_env\_config.xml". Define environment specific values that need to be updated in the generated MQSC file. Sample content:      
-
-	<?xml version="1.0" encoding="UTF-8"?>
-
+	
 	<mqsc>
 	    <local>
 	    	<DEFPSIST>YES</DEFPSIST>
@@ -54,17 +53,18 @@ Setup
 	    </prod>
 	</mqsc>
 4.Create release folder like "000", "001" etc in src/main/resources       
-	- 000 folder will be the base folder to create initial MQ objects    
-	- 001 folder will house scripts for the next release   
+   - 000 folder will be the base folder to create initial MQ objects    
+   - 001 folder will house scripts for the next release   
+
 5.Create MQSC script file with extension as ".mqsc" in 000 folder. Add MQSC scripts to the file
-	- Change DEFPSIST configuration to DEFPSIST(${DEFPSIST}). This will get replaced with the value in mq\_env\_config.xml         
+   - Change DEFPSIST configuration to DEFPSIST(${DEFPSIST}). This will get replaced with the value in mq\_env\_config.xml         
 
 	
 Generate MQSC files
 ----------
 1. Run    
 	
-	mvn compile
+		mvn compile     
 2.Generated files will be at target/generated_mqsc	        
 3.Sequence of steps processed:      
 	- Reads environment specific properties from mq\_env\_config.xml. This file will have environment specific values for MQSC attributes.       
