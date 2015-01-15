@@ -25,6 +25,7 @@ import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
+
 /**
  * Generate IBM Websphere MQSC files that can define/alter queue definitions.
  * <p>
@@ -64,25 +65,25 @@ public class MqscMojo extends AbstractMojo {
 
 	private static final Logger LOG = Logger.getLogger(MqscMojo.class);
 	
-	private static final String MQSC_ALL_FILE_SUFFIX = "all";
+	private static final String MQSC_ALL_FILE_PREFIX = "all";
 	private static final String MQSC_FILE_EXTENSION = ".mqsc";
 	private static final String MQSC_SOURCE_DIR = "src/main/resources";
 	private static final String MQSC_GEN_DIR = "target/generated_mqsc";
 	private static final String MQSC_VAR_PREFIX = "${";
 	private static final String MQSC_VAR_SUFFIX = "}";
-	private static final String MQ_ENVIRONMENT_FILE = "src/main/resources/mq_env_config.xml";
+	private static final String MQ_ENV_CONFIG_FILE = MQSC_SOURCE_DIR+"/mq_env_config.xml";
 
 	/**
 	 * MQ properties with environment specific setting 
 	 */
-	@Parameter(property = "mq_environment_properties", defaultValue=MQ_ENVIRONMENT_FILE, readonly=true)
-    private String mqEnvironmentPropertiesFile;
+	@Parameter(property = "mq_environment_config", defaultValue=MQ_ENV_CONFIG_FILE, readonly=true)
+    private String mqEnvironmentConfig;
 	
 	
 	@Override
 	public void execute() throws MojoExecutionException, MojoFailureException {
 		try {
-			XMLConfiguration config = new XMLConfiguration(mqEnvironmentPropertiesFile);
+			XMLConfiguration config = new XMLConfiguration(mqEnvironmentConfig);
 			FileUtils.deleteQuietly(new File(MQSC_GEN_DIR));
 			
 			combineAllMqscFiles(config);
@@ -106,12 +107,12 @@ public class MqscMojo extends AbstractMojo {
 	private void combineAllMqscFiles(XMLConfiguration config) {
 		List<File> allMqscFiles = getAllMqscFiles();
 		
-		processMqscFiles(config, allMqscFiles, MQSC_ALL_FILE_SUFFIX);
+		processMqscFiles(config, allMqscFiles, MQSC_ALL_FILE_PREFIX);
 		LOG.debug("Processed MQSC files in all release directories");
 	}
 
 	@SuppressWarnings("unchecked")
-	private void processMqscFiles(XMLConfiguration config, List<File> mqscFiles, String fileSuffix) {
+	private void processMqscFiles(XMLConfiguration config, List<File> mqscFiles, String releaseFolder) {
 		
 		if(CollectionUtils.isNotEmpty(mqscFiles)){
 			List<ConfigurationNode> allMQSCEnvironments = config.getRootNode().getChildren();
@@ -123,26 +124,27 @@ public class MqscMojo extends AbstractMojo {
 				
 				for(Object key: allMQSCForEnvironment.keySet()){
 					List<String> mqscContentList = (List<String>)allMQSCForEnvironment.get(key);
-					generateMQSCContent(mqscContentList, (String)key, fileSuffix);
+					generateMQSCContent(config, mqscContentList, (String)key, releaseFolder);
 				}
 			}
 		}
 	}
 
-	private void generateMQSCContent(List<String> mqscContents, String environment, String fileSuffix) {
-		File combinedFile = createMqscFile(environment, fileSuffix);
+	private void generateMQSCContent(XMLConfiguration config, List<String> mqscContents, String environment, String releaseFolder) {
+		File combinedFile = createMqscFile(environment, releaseFolder);
 		
 		String combinedContent = StringUtils.join(mqscContents, "\r\n");
-		removeInvalidCharacters(combinedContent);
+		String updatedFileContent = processMqscFile(config, combinedContent, environment);
+		
 		try {
-			FileUtils.writeStringToFile(combinedFile, combinedContent);
+			FileUtils.writeStringToFile(combinedFile, updatedFileContent);
 		} catch (IOException e) {
 			LOG.error(e.getMessage(), e);
 		}
 	}
 	
-	private static File createMqscFile(String environment, String fileSuffix) {
-		String mqscFileName = MQSC_GEN_DIR+"/"+environment+"/"+environment+"-"+fileSuffix;
+	private static File createMqscFile(String environment, String releaseFolder) {
+		String mqscFileName = MQSC_GEN_DIR+"/"+environment+"/"+releaseFolder+"-"+environment+MQSC_FILE_EXTENSION;
 		return new File(mqscFileName);
 	}
 
@@ -154,28 +156,29 @@ public class MqscMojo extends AbstractMojo {
 			String environment = rootConfigNode.getName();
 			
 			for(File mqscFile: allMqscFiles){
-				String mqscContent = processMqscFile(config, mqscFile, environment);
-				allMQSCForEnvironment.put(environment, mqscContent);
+				try {
+					String originalfileContent = FileUtils.readFileToString(mqscFile);
+					allMQSCForEnvironment.put(environment, originalfileContent);
+				} catch (IOException e) {
+					LOG.error(e.getMessage(), e);
+				}
 			}
 		}
 	}
 
-	private String processMqscFile(XMLConfiguration config, File mqscFile, String environment) {
-		try {
-			String originalfileContent = FileUtils.readFileToString(mqscFile);
+	private String processMqscFile(XMLConfiguration config, String fileContent, String environment) {
+		if(StringUtils.isNotBlank(fileContent)){
+			List<String> mqscVars = new ArrayList<String>();
+			List<String> mqscVarValues = new ArrayList<String>();
 			
-			if(StringUtils.isNotBlank(originalfileContent)){
-				List<String> mqscVars = new ArrayList<String>();
-				List<String> mqscVarValues = new ArrayList<String>();
-				
-				extractMQSCAttributeAndValueForReplacement(config,
-						environment, mqscVars, mqscVarValues);
-				String mqscContent = decorateMQSC(originalfileContent,
-						mqscVars, mqscVarValues);
-				return mqscContent;
-			}
-		} catch (IOException e) {
-			LOG.error(e.getMessage(), e);
+			removeInvalidCharacters(fileContent);
+			
+			extractMQSCAttributeAndValueForReplacement(config,
+					environment, mqscVars, mqscVarValues);
+			
+			String updatedFileContent = decorateMQSC(fileContent,
+					mqscVars, mqscVarValues);
+			return updatedFileContent;
 		}
 		return null;
 	}
@@ -192,15 +195,13 @@ public class MqscMojo extends AbstractMojo {
 		}
 	}
 
-	private String decorateMQSC(String originalfileContent,
-			List<String> mqscVars, List<String> mqscVarValues)
-			throws IOException {
+	private String decorateMQSC(String fileContent,
+			List<String> mqscVars, List<String> mqscVarValues) {
 		if(CollectionUtils.isNotEmpty(mqscVars)){
-			String MQSCContent = StringUtils.replaceEach(originalfileContent
+			String updatedFileContent = StringUtils.replaceEach(fileContent
 					, mqscVars.toArray(new String[mqscVars.size()])
 					, mqscVarValues.toArray(new String[mqscVarValues.size()]));
-			
-			return MQSCContent;
+			return updatedFileContent;
 		}
 		return null;
 	}
@@ -227,7 +228,7 @@ public class MqscMojo extends AbstractMojo {
 		}
 	}
 
-	public void setMqEnvironmentPropertiesFile(String mqEnvironmentPropertiesFile) {
-		this.mqEnvironmentPropertiesFile = mqEnvironmentPropertiesFile;
+	public void setMqEnvironmentConfig(String mqEnvironmentConfig) {
+		this.mqEnvironmentConfig = mqEnvironmentConfig;
 	}
 }
