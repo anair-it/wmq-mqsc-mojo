@@ -2,13 +2,14 @@ package org.anair.mqsc.mojo;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.collections.MultiMap;
-import org.apache.commons.collections.map.MultiValueMap;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections4.MultiValuedMap;
+import org.apache.commons.collections4.multimap.ArrayListValuedHashMap;
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.configuration.SubnodeConfiguration;
 import org.apache.commons.configuration.XMLConfiguration;
@@ -17,13 +18,14 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.DirectoryFileFilter;
 import org.apache.commons.io.filefilter.SuffixFileFilter;
 import org.apache.commons.io.filefilter.TrueFileFilter;
-import org.apache.commons.lang.StringUtils;
-import org.apache.log4j.Logger;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -48,7 +50,7 @@ import org.apache.maven.plugins.annotations.Parameter;
 			<version>0.0.1</version>
 			<executions>
 				<execution>
-					<phase>compile</phase>
+					<phase>package</phase>
 					<goals>
 						<goal>mqsc</goal>
 					</goals>
@@ -63,7 +65,7 @@ import org.apache.maven.plugins.annotations.Parameter;
 @Mojo(name = "mqsc")
 public class MqscMojo extends AbstractMojo {
 
-	private static final Logger LOG = Logger.getLogger(MqscMojo.class);
+	private static final Logger LOG = LoggerFactory.getLogger(MqscMojo.class);
 	
 	private static final String MQSC_ALL_FILE_PREFIX = "all";
 	private static final String MQSC_FILE_EXTENSION = ".mqsc";
@@ -111,20 +113,19 @@ public class MqscMojo extends AbstractMojo {
 		LOG.debug("Processed MQSC files in all release directories");
 	}
 
-	@SuppressWarnings("unchecked")
 	private void processMqscFiles(XMLConfiguration config, List<File> mqscFiles, String releaseFolder) {
 		
 		if(CollectionUtils.isNotEmpty(mqscFiles)){
 			List<ConfigurationNode> allMQSCEnvironments = config.getRootNode().getChildren();
 			if(CollectionUtils.isNotEmpty(allMQSCEnvironments)){
-				MultiMap allMQSCForEnvironment = new MultiValueMap();
+				MultiValuedMap<String,String> allMQSCForEnvironment = new ArrayListValuedHashMap<>();
 				
 				processMQSCForAllEnvironments(config, mqscFiles,
 						allMQSCEnvironments, allMQSCForEnvironment);
 				
-				for(Object key: allMQSCForEnvironment.keySet()){
+				for(String key: allMQSCForEnvironment.keySet()){
 					List<String> mqscContentList = (List<String>)allMQSCForEnvironment.get(key);
-					generateMQSCContent(config, mqscContentList, (String)key, releaseFolder);
+					generateMQSCContent(config, mqscContentList, key, releaseFolder);
 				}
 			}
 		}
@@ -137,7 +138,7 @@ public class MqscMojo extends AbstractMojo {
 		String updatedFileContent = processMqscFile(config, combinedContent, environment);
 		
 		try {
-			FileUtils.writeStringToFile(combinedFile, updatedFileContent);
+			FileUtils.writeStringToFile(combinedFile, updatedFileContent, Charset.defaultCharset());
 		} catch (IOException e) {
 			LOG.error(e.getMessage(), e);
 		}
@@ -151,13 +152,13 @@ public class MqscMojo extends AbstractMojo {
 	private void processMQSCForAllEnvironments(XMLConfiguration config,
 			List<File> allMqscFiles,
 			List<ConfigurationNode> allMQSCEnvironments,
-			MultiMap allMQSCForEnvironment) {
+			MultiValuedMap<String,String> allMQSCForEnvironment) {
 		for(ConfigurationNode rootConfigNode: allMQSCEnvironments){
 			String environment = rootConfigNode.getName();
 			
 			for(File mqscFile: allMqscFiles){
 				try {
-					String originalfileContent = FileUtils.readFileToString(mqscFile);
+					String originalfileContent = FileUtils.readFileToString(mqscFile, Charset.defaultCharset());
 					allMQSCForEnvironment.put(environment, originalfileContent);
 				} catch (IOException e) {
 					LOG.error(e.getMessage(), e);
@@ -168,8 +169,8 @@ public class MqscMojo extends AbstractMojo {
 
 	private String processMqscFile(XMLConfiguration config, String fileContent, String environment) {
 		if(StringUtils.isNotBlank(fileContent)){
-			List<String> mqscVars = new ArrayList<String>();
-			List<String> mqscVarValues = new ArrayList<String>();
+			List<String> mqscVars = new ArrayList<>();
+			List<String> mqscVarValues = new ArrayList<>();
 			
 			removeInvalidCharacters(fileContent);
 			

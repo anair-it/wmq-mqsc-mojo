@@ -8,7 +8,7 @@ This is a maven mojo to generate MQSC files. MQSC is the IBM MQ scripting langua
 
 Software Prerequisites
 ----------------------
-1. JDK 6+
+1. JDK 8
 2. Maven 3+
 
 
@@ -26,10 +26,10 @@ Setup
 		<plugin>
 			<groupId>org.anair.maven.mojo</groupId>
 			<artifactId>wmq-mqsc-mojo</artifactId>
-			<version>0.0.1</version>
+			<version>0.0.2</version>
 			<executions>
 				<execution>
-					<phase>compile</phase>
+					<phase>package</phase>
 					<goals>
 						<goal>mqsc</goal>
 					</goals>
@@ -64,7 +64,7 @@ Generate MQSC files
 ----------
 1. Run    
 	
-		mvn compile     
+		mvn clean package     
 2.Generated files will be at target/generated_mqsc	        
 3.Sequence of steps processed:      
 	- Reads environment specific properties from mq\_env\_config.xml. This file will have environment specific values for MQSC attributes.       
